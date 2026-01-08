@@ -6,23 +6,24 @@ module.exports = {
     execute(client) {
         console.log(`☕ SISTEMA INICIADO: Logado como ${client.user.tag}`);
 
-        // Sua lista personalizada de atividades
         const activities = [
-            { name: '☕ Pausa para o cafézinho...', type: ActivityType.Playing }, // Playing para aparecer o ícone
-            { name: 'as reclamações do patrão', type: ActivityType.Listening },
-            { name: 'Candy Crush', type: ActivityType.Playing },
-            { name: 'Os Donos da Bola', type: ActivityType.Watching },
-            { name: '👍 Dando aquele joinha pro pessoal da firma.', type: ActivityType.Playing },
-            { name: 'o jogo no radinho de pilha', type: ActivityType.Listening },
-            { name: 'a movimentação no #geral', type: ActivityType.Watching },
-            { name: '🔍 Inspecionando as permissões.', type: ActivityType.Watching }, // Trocado para Watching para aparecer
-            { name: 'algum filme do Denzel Washington', type: ActivityType.Watching },
-            { name: '🎵 Tim Maia', type: ActivityType.Listening },
+            // Usamos ActivityType.Custom para o Discord mostrar APENAS o texto (sem prefixo automático)
+            // Aí escrevemos o verbo nós mesmos para garantir a leitura.
+
+            { name: '☕ Tomando aquele cafézinho...', type: ActivityType.Custom },
+            { name: '🍬 Jogando Candy Crush', type: ActivityType.Custom },
+            { name: '👍 Dando joinha pro pessoal', type: ActivityType.Custom },
+            { name: '👂 Ouvindo as reclamações do patrão', type: ActivityType.Custom },
+            { name: '📻 Ouvindo o jogo no radinho', type: ActivityType.Custom },
+            { name: '🎵 Ouvindo Tim Maia', type: ActivityType.Custom },
+            { name: '📺 Assistindo Os Donos da Bola', type: ActivityType.Custom },
+            { name: '👀 Assistindo a movimentação no #geral', type: ActivityType.Custom },
+            { name: '🔍 Inspecionando as permissões', type: ActivityType.Custom },
+            { name: '🎬 Assistindo filme do Denzel Washington', type: ActivityType.Custom },
         ];
 
         let i = 0;
 
-        // Função que atualiza o status
         const updateStatus = () => {
             const activity = activities[i];
             
@@ -35,10 +36,10 @@ module.exports = {
             i = (i + 1) % activities.length;
         };
 
-        // Roda a primeira vez imediatamente (pra não esperar 5 min pro primeiro status)
+        // Roda a primeira vez
         updateStatus();
 
-        // Configura o intervalo para 5 minutos (5 * 60 * 1000 = 300000ms)
-        setInterval(updateStatus, 5 * 60 * 1000);
+        // Roda a cada 3 minutos
+        setInterval(updateStatus, 3 * 60 * 1000);
     },
 };
