@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const { getWarnings } = require('../../services/database');
 
 module.exports = {
@@ -13,7 +13,7 @@ module.exports = {
         const lista = getWarnings(interaction.guild.id, usuario.id);
 
         if (!lista || lista.length === 0) {
-            return interaction.reply({ content: `✅ A ficha de **${usuario.tag}** está limpa!`, ephemeral: true });
+            return interaction.reply({ content: `✅ A ficha de **${usuario.tag}** está limpa!`, flags: MessageFlags.Ephemeral });
         }
 
         const historico = lista.map((w, i) => `**${i+1}.** [${w.data}] ${w.motivo} *(por ${w.autor})*`).join('\n');

@@ -1,11 +1,16 @@
-const { Events, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { Events, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 const { logEvento } = require('../services/logger');
+const categoryNames = require('../utils/commandCategories');
 
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
         
-        // --- TIPO 1: COMANDOS DE BARRA (/unban, /warn...) ---
+        // ====================================================
+        // 1. COMANDOS DE BARRA (/comando)
+        // ====================================================
         if (interaction.isChatInputCommand()) {
             const command = client.commands.get(interaction.commandName);
             if (!command) return;
@@ -13,66 +18,97 @@ module.exports = {
             try {
                 await command.execute(interaction, client);
             } catch (error) {
-                console.error(error);
-                const msg = { content: '🤯 Erro interno no comando.', ephemeral: true };
+                console.error(`Erro em /${interaction.commandName}:`, error);
+                const msg = { content: '🤯 Erro interno no comando.', flags: MessageFlags.Ephemeral };
                 if (interaction.replied || interaction.deferred) await interaction.followUp(msg);
                 else await interaction.reply(msg);
             }
-            return;
         }
 
-        // --- TIPO 2: BOTÕES DO TRIBUNAL ---
-        if (interaction.isButton()) {
-            // Verifica se quem clicou é da Staff (Ban Members)
-            if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                return interaction.reply({ content: '🚫 Sai daí, curioso! Só a Staff pode votar.', ephemeral: true });
+        // ====================================================
+        // 2. MENUS DE SELEÇÃO (COMANDO /AJUDA)
+        // ====================================================
+        else if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'ajuda-menu') {
+                const selectedCategory = interaction.values[0]; // Nome da pasta (ex: 'moderacao')
+                
+                // Caminho para a pasta selecionada
+                const categoryPath = path.join(__dirname, '../commands', selectedCategory);
+                
+                try {
+                    // Lê os arquivos dentro da pasta escolhida
+                    const commandFiles = fs.readdirSync(categoryPath).filter(file => file.endsWith('.js'));
+                    
+                    // Mapeia os comandos para texto
+                    const listaComandos = commandFiles.map(file => {
+                        const cmd = require(path.join(categoryPath, file));
+                        return `**/%s**\n└─ %s`.replace('%s', cmd.data.name).replace('%s', cmd.data.description);
+                    }).join('\n\n');
+
+                    const nomeBonito = categoryNames[selectedCategory] || selectedCategory.toUpperCase();
+
+                    const embedAjuda = new EmbedBuilder()
+                        .setColor(0x00A8FC)
+                        .setTitle(`📂 Categoria: ${nomeBonito}`)
+                        .setDescription(listaComandos || 'Nenhum comando encontrado.')
+                        .setFooter({ text: 'Portaria do Bira • Manual' });
+
+                    // Atualiza a mensagem original com o novo embed
+                    await interaction.update({ embeds: [embedAjuda] }); // Mantém o menu lá caso queira trocar
+
+                } catch (erro) {
+                    console.error('Erro no menu ajuda:', erro);
+                    await interaction.reply({ content: '❌ Erro ao carregar essa categoria.', flags: MessageFlags.Ephemeral });
+                }
+            }
+        }
+
+        // ====================================================
+        // 3. BOTÕES (VERIFICAÇÃO E TRIBUNAL)
+        // ====================================================
+        else if (interaction.isButton()) {
+            const customId = interaction.customId;
+
+            // --- A. SISTEMA DE VERIFICAÇÃO ---
+            if (customId.startsWith('verificar_')) {
+                const roleId = customId.split('_')[1]; 
+                const role = interaction.guild.roles.cache.get(roleId);
+
+                if (!role) return interaction.reply({ content: '❌ Erro: Cargo não encontrado.', flags: MessageFlags.Ephemeral });
+                if (interaction.member.roles.cache.has(roleId)) return interaction.reply({ content: '✅ Já verificado!', flags: MessageFlags.Ephemeral });
+
+                try {
+                    await interaction.member.roles.add(role);
+                    await interaction.reply({ content: `🎉 **Acesso Liberado!** Bem-vindo, ${interaction.user}!`, flags: MessageFlags.Ephemeral });
+                } catch (erro) {
+                    await interaction.reply({ content: '❌ Erro de permissão. O meu cargo (Bot) precisa ser maior que o cargo de Membro.', flags: MessageFlags.Ephemeral });
+                }
             }
 
-            const [acao, idAlvo] = interaction.customId.split('_'); // Separa 'absolver' de '123456'
-
-            // --- OPÇÃO A: ABSOLVER (DESBANIR) ---
-            if (acao === 'absolver') {
-                try {
-                    // Executa o Unban Real
-                    await interaction.guild.members.unban(idAlvo, `Aprovado no Tribunal por ${interaction.user.tag}`);
-                    
-                    // Edita o cartão para VERDE (Caso Encerrado)
-                    const embedAbsolvido = new EmbedBuilder(interaction.message.embeds[0])
-                        .setColor(0x00FF00) // Verde
-                        .setTitle('⚖️ Veredito: DESBANIDO 🕊️')
-                        .addFields({ name: '✅ Aprovado por', value: interaction.user.tag });
-
-                    // Remove os botões e atualiza
-                    await interaction.update({ embeds: [embedAbsolvido], components: [] });
-                    
-                    // Gera o LOG OFICIAL
-                    logEvento(client, interaction.guild, 'Tribunal', '🕊️ Desbanimento Aprovado', 
-                        `O usuário ${idAlvo} foi perdoado após votação.`, 
-                        [{ name: 'Juiz Responsável', value: interaction.user.tag }], 
-                        0x00FF00
-                    );
-
-                } catch (e) {
-                    interaction.reply({ content: '❌ Erro: O usuário já foi desbanido ou o ID sumiu.', ephemeral: true });
+            // --- B. SISTEMA DE TRIBUNAL (UNBAN) ---
+            else if (customId.startsWith('absolver_') || customId.startsWith('manter_')) {
+                if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+                    return interaction.reply({ content: '🚫 Apenas Staff pode votar.', flags: MessageFlags.Ephemeral });
                 }
-            } 
-            
-            // --- OPÇÃO B: MANTER BAN (RECUSAR) ---
-            else if (acao === 'manter') {
-                // Edita o cartão para VERMELHO (Pedido Negado)
-                const embedNegado = new EmbedBuilder(interaction.message.embeds[0])
-                    .setColor(0xFF0000) // Vermelho
-                    .setTitle('⚖️ Veredito: PEDIDO NEGADO 🔨')
-                    .addFields({ name: '🚫 Recusado por', value: interaction.user.tag });
 
-                await interaction.update({ embeds: [embedNegado], components: [] });
+                const [acao, idAlvo] = customId.split('_');
 
-                // Log (Opcional, mas bom pra saber quem negou)
-                logEvento(client, interaction.guild, 'Tribunal', '🔨 Recurso Negado', 
-                    `O pedido de unban do usuário ${idAlvo} foi rejeitado.`, 
-                    [{ name: 'Juiz Responsável', value: interaction.user.tag }], 
-                    0xFF0000
-                );
+                if (acao === 'absolver') {
+                    try {
+                        await interaction.guild.members.unban(idAlvo, `Tribunal: ${interaction.user.tag}`);
+                        
+                        const embedAbsolvido = new EmbedBuilder(interaction.message.embeds[0])
+                            .setColor(0x00FF00).setTitle('⚖️ Veredito: DESBANIDO 🕊️').addFields({ name: 'Juiz', value: interaction.user.tag });
+                        
+                        await interaction.update({ embeds: [embedAbsolvido], components: [] });
+                        logEvento(client, interaction.guild, 'Tribunal', '🕊️ Desbanido', `Usuário ${idAlvo} perdoado.`, [], 0x00FF00);
+                    } catch (e) { interaction.reply({ content: 'Erro: Usuário já desbanido ou ID inválido.', flags: MessageFlags.Ephemeral }); }
+                } 
+                else if (acao === 'manter') {
+                    const embedNegado = new EmbedBuilder(interaction.message.embeds[0])
+                        .setColor(0xFF0000).setTitle('⚖️ Veredito: NEGADO 🔨').addFields({ name: 'Juiz', value: interaction.user.tag });
+                    await interaction.update({ embeds: [embedNegado], components: [] });
+                }
             }
         }
     },

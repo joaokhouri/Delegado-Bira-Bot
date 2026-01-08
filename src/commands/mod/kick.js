@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const { logEvento } = require('../../services/logger');
 
 module.exports = {
@@ -14,8 +14,8 @@ module.exports = {
         const usuario = interaction.options.getUser('usuario');
         const motivo = interaction.options.getString('motivo') ?? 'Sem motivo.';
 
-        if (!membro) return interaction.reply({ content: 'Membro não encontrado.', ephemeral: true });
-        if (!membro.kickable) return interaction.reply({ content: '❌ Não posso expulsar esse membro (Cargo superior ao meu).', ephemeral: true });
+        if (!membro) return interaction.reply({ content: 'Membro não encontrado.', flags: MessageFlags.Ephemeral });
+        if (!membro.kickable) return interaction.reply({ content: '❌ Não posso expulsar esse membro (Cargo superior ao meu).', flags: MessageFlags.Ephemeral });
 
         await membro.kick(motivo);
 

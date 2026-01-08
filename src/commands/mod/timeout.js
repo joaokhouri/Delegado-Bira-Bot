@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const { logEvento } = require('../../services/logger');
 
 module.exports = {
@@ -16,7 +16,7 @@ module.exports = {
         const minutos = interaction.options.getInteger('minutos');
         const motivo = interaction.options.getString('motivo') ?? 'Sem motivo.';
 
-        if (!membro.moderatable) return interaction.reply({ content: '❌ Não posso castigar este membro.', ephemeral: true });
+        if (!membro.moderatable) return interaction.reply({ content: '❌ Não posso castigar este membro.', flags: MessageFlags.Ephemeral });
 
         await membro.timeout(minutos * 60 * 1000, motivo);
 

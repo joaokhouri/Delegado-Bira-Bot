@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const { logEvento } = require('../../services/logger');
 
 module.exports = {
@@ -30,7 +30,7 @@ module.exports = {
                 0x8B0000
             );
         } catch (error) {
-            interaction.reply({ content: '❌ Erro ao banir. Verifique os cargos.', ephemeral: true });
+            interaction.reply({ content: '❌ Erro ao banir. Verifique os cargos.', flags: MessageFlags.Ephemeral });
         }
     },
 };
