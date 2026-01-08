@@ -26,20 +26,15 @@ module.exports = {
         }
 
         // ====================================================
-        // 2. MENUS DE SELEÇÃO (COMANDO /AJUDA)
+        // 2. MENUS DE SELEÇÃO (COMANDO /COMANDOS)
         // ====================================================
         else if (interaction.isStringSelectMenu()) {
             if (interaction.customId === 'ajuda-menu') {
-                const selectedCategory = interaction.values[0]; // Nome da pasta (ex: 'moderacao')
-                
-                // Caminho para a pasta selecionada
+                const selectedCategory = interaction.values[0]; 
                 const categoryPath = path.join(__dirname, '../commands', selectedCategory);
                 
                 try {
-                    // Lê os arquivos dentro da pasta escolhida
                     const commandFiles = fs.readdirSync(categoryPath).filter(file => file.endsWith('.js'));
-                    
-                    // Mapeia os comandos para texto
                     const listaComandos = commandFiles.map(file => {
                         const cmd = require(path.join(categoryPath, file));
                         return `**/%s**\n└─ %s`.replace('%s', cmd.data.name).replace('%s', cmd.data.description);
@@ -53,8 +48,7 @@ module.exports = {
                         .setDescription(listaComandos || 'Nenhum comando encontrado.')
                         .setFooter({ text: 'Portaria do Bira • Manual' });
 
-                    // Atualiza a mensagem original com o novo embed
-                    await interaction.update({ embeds: [embedAjuda] }); // Mantém o menu lá caso queira trocar
+                    await interaction.update({ embeds: [embedAjuda] });
 
                 } catch (erro) {
                     console.error('Erro no menu ajuda:', erro);
@@ -64,7 +58,27 @@ module.exports = {
         }
 
         // ====================================================
-        // 3. BOTÕES (VERIFICAÇÃO E TRIBUNAL)
+        // 3. MODAIS (JANELAS DE TEXTO)
+        // ====================================================
+        else if (interaction.isModalSubmit()) {
+            
+            // --- COMANDO /FALAR ---
+            if (interaction.customId === 'modal_falar') {
+                const texto = interaction.fields.getTextInputValue('texto_falar');
+                
+                // Envia a mensagem no canal onde o comando foi usado
+                await interaction.channel.send(texto);
+                
+                // Responde pro Admin (só ele vê) confirmando
+                await interaction.reply({ content: '✅ Mensagem enviada com sucesso!', flags: MessageFlags.Ephemeral });
+                
+                // Log (Opcional)
+                logEvento(client, interaction.guild, 'Comando Admin', '📢 Bira Falou', `Admin ${interaction.user.tag} usou /falar: "${texto}"`, [], 0x00A8FC);
+            }
+        }
+
+        // ====================================================
+        // 4. BOTÕES (VERIFICAÇÃO E TRIBUNAL)
         // ====================================================
         else if (interaction.isButton()) {
             const customId = interaction.customId;
