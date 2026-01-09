@@ -3,7 +3,7 @@ const { logEvento } = require('../../services/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('banir')
+        .setName('ban')
         .setDescription('Bane um usuário permanentemente')
         .addUserOption(option => option.setName('usuario').setDescription('Quem será banido').setRequired(true))
         .addStringOption(option => option.setName('motivo').setDescription('O motivo'))

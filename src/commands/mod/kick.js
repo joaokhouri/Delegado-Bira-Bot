@@ -3,7 +3,7 @@ const { logEvento } = require('../../services/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('expulsar')
+        .setName('kick')
         .setDescription('Expulsa um membro do servidor')
         .addUserOption(option => option.setName('usuario').setDescription('Quem será expulso').setRequired(true))
         .addStringOption(option => option.setName('motivo').setDescription('O motivo'))

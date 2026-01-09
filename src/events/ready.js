@@ -1,4 +1,5 @@
 const { Events, ActivityType } = require('discord.js');
+const { checkStream } = require('../services/twitch'); // Importamos o vigilante
 
 module.exports = {
     name: Events.ClientReady,
@@ -6,10 +7,10 @@ module.exports = {
     execute(client) {
         console.log(`☕ SISTEMA INICIADO: Logado como ${client.user.tag}`);
 
+        // ====================================================
+        // 1. SISTEMA DE STATUS ROTATIVO (A cada 3 min)
+        // ====================================================
         const activities = [
-            // Usamos ActivityType.Custom para o Discord mostrar APENAS o texto (sem prefixo automático)
-            // Aí escrevemos o verbo nós mesmos para garantir a leitura.
-
             { name: '☕ Tomando aquele cafézinho...', type: ActivityType.Custom },
             { name: '🍬 Jogando Candy Crush', type: ActivityType.Custom },
             { name: '👍 Dando joinha pro pessoal', type: ActivityType.Custom },
@@ -23,23 +24,27 @@ module.exports = {
         ];
 
         let i = 0;
-
         const updateStatus = () => {
             const activity = activities[i];
-            
             client.user.setPresence({
                 activities: [{ name: activity.name, type: activity.type }],
                 status: 'online',
             });
-
-            // Passa para o próximo
             i = (i + 1) % activities.length;
         };
 
-        // Roda a primeira vez
-        updateStatus();
+        updateStatus(); // Roda status agora
+        setInterval(updateStatus, 3 * 60 * 1000); // Muda a cada 3 minutos
 
-        // Roda a cada 3 minutos
-        setInterval(updateStatus, 3 * 60 * 1000);
+        // ====================================================
+        // 2. SISTEMA DE MONITORAMENTO DA TWITCH (A cada 2 min)
+        // ====================================================
+        console.log('📡 Vigilante da Twitch ativado...');
+        
+        checkStream(client); // Checa agora
+        
+        setInterval(() => {
+            checkStream(client);
+        }, 2 * 60 * 1000); // Checa a cada 2 minutos
     },
 };
