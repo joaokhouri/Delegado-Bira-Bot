@@ -10,7 +10,7 @@ module.exports = {
   async execute(interaction) {
     const cargo = interaction.options.getRole('cargo');
 
-    // Verifica hierarquia
+    // Verifica hierarquia para evitar erro de permissão
     if (cargo.position >= interaction.guild.members.me.roles.highest.position) {
         return interaction.reply({ content: '❌ Erro: O cargo selecionado é maior ou igual ao meu. Suba meu cargo na lista do Discord!', ephemeral: true });
     }
@@ -44,7 +44,7 @@ module.exports = {
         },
         {
           name: '5. CADA ASSUNTO NO SEU CANTO',
-          value: '> Use os canais certos pra cada papo. Quer chamar pra jogar? Use o `#procurando-grupo`. Quer usar meus comandos? Tô no `#comandos-do-bira`.',
+          value: '> Use os canais certos pra cada papo:\n• Quer jogar? Use o **#procurando-grupo**.\n• Meme e vídeo? Mande no **#memes-e-midia**.\n• Música? Vai pro **#radio-do-bira**.\n• Papo aleatório? **#off-topic**.',
         },
         {
           name: '6. SEM FAZER PROPAGANDA GRÁTIS',
@@ -65,6 +65,11 @@ module.exports = {
         {
           name: '10. OUVE OS MODS (E O DISCORD)',
           value: '> A palavra da moderação é a final. Respeite as decisões deles e siga também as regras do próprio Discord.',
+        },
+        // --- NOVA REGRA / AVISO SOBRE COMANDOS ---
+        {
+            name: '🤖 TÁ PERDIDO NOS COMANDOS?',
+            value: '> Quer saber tudo que eu sei fazer? É só digitar **/comandos** em qualquer canal que eu abro meu menu pra você.'
         }
       );
 
@@ -80,7 +85,6 @@ module.exports = {
       });
 
     // --- O BOTÃO DE ACEITAÇÃO ---
-    // Aqui está a mágica: Injetamos o ID do cargo no botão para o interactionCreate saber o que fazer
     const acceptButton = new ButtonBuilder()
       .setCustomId(`verificar_${cargo.id}`)
       .setLabel('Li e aceito as regras')

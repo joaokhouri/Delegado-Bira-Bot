@@ -4,6 +4,11 @@ const path = require('path');
 const { logEvento } = require('../services/logger');
 const categoryNames = require('../utils/commandCategories');
 
+// --- ANTI-FLOOD DE BOTÃO ---
+// Armazena quem clicou e quando: Map<UserId, Timestamp>
+const buttonCooldowns = new Map();
+const COOLDOWN_TIME = 10000; // 10 segundos de espera entre cliques
+
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
@@ -26,7 +31,7 @@ module.exports = {
         }
 
         // ====================================================
-        // 2. MENUS DE SELEÇÃO (COMANDO /COMANDOS)
+        // 2. MENUS DE SELEÇÃO (/COMANDOS)
         // ====================================================
         else if (interaction.isStringSelectMenu()) {
             if (interaction.customId === 'ajuda-menu') {
@@ -51,29 +56,20 @@ module.exports = {
                     await interaction.update({ embeds: [embedAjuda] });
 
                 } catch (erro) {
-                    console.error('Erro no menu ajuda:', erro);
-                    await interaction.reply({ content: '❌ Erro ao carregar essa categoria.', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ Erro ao carregar categoria.', flags: MessageFlags.Ephemeral });
                 }
             }
         }
 
         // ====================================================
-        // 3. MODAIS (JANELAS DE TEXTO)
+        // 3. MODAIS (/FALAR)
         // ====================================================
         else if (interaction.isModalSubmit()) {
-            
-            // --- COMANDO /FALAR ---
             if (interaction.customId === 'modal_falar') {
                 const texto = interaction.fields.getTextInputValue('texto_falar');
-                
-                // Envia a mensagem no canal onde o comando foi usado
                 await interaction.channel.send(texto);
-                
-                // Responde pro Admin (só ele vê) confirmando
-                await interaction.reply({ content: '✅ Mensagem enviada com sucesso!', flags: MessageFlags.Ephemeral });
-                
-                // Log (Opcional)
-                logEvento(client, interaction.guild, 'Comando Admin', '📢 Bira Falou', `Admin ${interaction.user.tag} usou /falar: "${texto}"`, [], 0x00A8FC);
+                await interaction.reply({ content: '✅ Enviado!', flags: MessageFlags.Ephemeral });
+                logEvento(client, interaction.guild, 'Admin', '📢 Bira Falou', `Admin: ${interaction.user.tag}\nMsg: ${texto}`, [], 0x00A8FC);
             }
         }
 
@@ -83,45 +79,58 @@ module.exports = {
         else if (interaction.isButton()) {
             const customId = interaction.customId;
 
-            // --- A. SISTEMA DE VERIFICAÇÃO ---
+            // --- A. SISTEMA DE VERIFICAÇÃO (COM COOLDOWN) ---
             if (customId.startsWith('verificar_')) {
-                const roleId = customId.split('_')[1]; 
-                const role = interaction.guild.roles.cache.get(roleId);
+                
+                // 1. Checa Cooldown (Anti-Flood)
+                const now = Date.now();
+                if (buttonCooldowns.has(interaction.user.id)) {
+                    const expirationTime = buttonCooldowns.get(interaction.user.id) + COOLDOWN_TIME;
+                    if (now < expirationTime) {
+                        return interaction.reply({ 
+                            content: '⏳ **Calma lá, apressadinho!** Espera um pouco pra clicar de novo.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+                }
+                // Atualiza o tempo do último clique
+                buttonCooldowns.set(interaction.user.id, now);
 
-                if (!role) return interaction.reply({ content: '❌ Erro: Cargo não encontrado.', flags: MessageFlags.Ephemeral });
-                if (interaction.member.roles.cache.has(roleId)) return interaction.reply({ content: '✅ Já verificado!', flags: MessageFlags.Ephemeral });
+
+                // 2. Lógica de Verificação
+                // Procura o cargo "Verificado" ou "Membros"
+                const role = interaction.guild.roles.cache.find(r => r.name === 'Verificado' || r.name === 'Membro' || r.name === 'Cidadão');
+
+                if (!role) return interaction.reply({ content: '❌ Erro: Cargo de verificação não configurado no servidor.', flags: MessageFlags.Ephemeral });
+                
+                if (interaction.member.roles.cache.has(role.id)) {
+                    return interaction.reply({ content: '✅ Você já está verificado, chefia! Pode circular.', flags: MessageFlags.Ephemeral });
+                }
 
                 try {
                     await interaction.member.roles.add(role);
-                    await interaction.reply({ content: `🎉 **Acesso Liberado!** Bem-vindo, ${interaction.user}!`, flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: `🎉 **Acesso Liberado!** Bem-vindo ao condomínio, ${interaction.user}!`, flags: MessageFlags.Ephemeral });
                 } catch (erro) {
-                    await interaction.reply({ content: '❌ Erro de permissão. O meu cargo (Bot) precisa ser maior que o cargo de Membro.', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ Erro de permissão: Meu cargo precisa estar ACIMA do cargo de Membros.', flags: MessageFlags.Ephemeral });
                 }
             }
 
-            // --- B. SISTEMA DE TRIBUNAL (UNBAN) ---
+            // --- B. TRIBUNAL (UNBAN) ---
             else if (customId.startsWith('absolver_') || customId.startsWith('manter_')) {
-                if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return interaction.reply({ content: '🚫 Apenas Staff pode votar.', flags: MessageFlags.Ephemeral });
-                }
-
+                // ... (Lógica do tribunal permanece idêntica) ...
+                if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) return interaction.reply({ content: '🚫 Apenas Staff.', flags: MessageFlags.Ephemeral });
                 const [acao, idAlvo] = customId.split('_');
 
                 if (acao === 'absolver') {
                     try {
                         await interaction.guild.members.unban(idAlvo, `Tribunal: ${interaction.user.tag}`);
-                        
-                        const embedAbsolvido = new EmbedBuilder(interaction.message.embeds[0])
-                            .setColor(0x00FF00).setTitle('⚖️ Veredito: DESBANIDO 🕊️').addFields({ name: 'Juiz', value: interaction.user.tag });
-                        
-                        await interaction.update({ embeds: [embedAbsolvido], components: [] });
+                        const embed = new EmbedBuilder(interaction.message.embeds[0]).setColor(0x00FF00).setTitle('⚖️ Veredito: DESBANIDO 🕊️').addFields({name:'Juiz', value:interaction.user.tag});
+                        await interaction.update({ embeds: [embed], components: [] });
                         logEvento(client, interaction.guild, 'Tribunal', '🕊️ Desbanido', `Usuário ${idAlvo} perdoado.`, [], 0x00FF00);
-                    } catch (e) { interaction.reply({ content: 'Erro: Usuário já desbanido ou ID inválido.', flags: MessageFlags.Ephemeral }); }
-                } 
-                else if (acao === 'manter') {
-                    const embedNegado = new EmbedBuilder(interaction.message.embeds[0])
-                        .setColor(0xFF0000).setTitle('⚖️ Veredito: NEGADO 🔨').addFields({ name: 'Juiz', value: interaction.user.tag });
-                    await interaction.update({ embeds: [embedNegado], components: [] });
+                    } catch (e) { interaction.reply({ content: 'Erro ao desbanir.', flags: MessageFlags.Ephemeral }); }
+                } else {
+                    const embed = new EmbedBuilder(interaction.message.embeds[0]).setColor(0xFF0000).setTitle('⚖️ Veredito: NEGADO 🔨').addFields({name:'Juiz', value:interaction.user.tag});
+                    await interaction.update({ embeds: [embed], components: [] });
                 }
             }
         }

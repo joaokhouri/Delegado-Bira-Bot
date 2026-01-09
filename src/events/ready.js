@@ -18,7 +18,7 @@ module.exports = {
             { name: '📻 Ouvindo o jogo no radinho', type: ActivityType.Custom },
             { name: '🎵 Ouvindo Tim Maia', type: ActivityType.Custom },
             { name: '📺 Assistindo Os Donos da Bola', type: ActivityType.Custom },
-            { name: '👀 Assistindo a movimentação no #geral', type: ActivityType.Custom },
+            { name: '👀 Assistindo a movimentação no #chat-geral', type: ActivityType.Custom },
             { name: '🔍 Inspecionando as permissões', type: ActivityType.Custom },
             { name: '🎬 Assistindo filme do Denzel Washington', type: ActivityType.Custom },
         ];

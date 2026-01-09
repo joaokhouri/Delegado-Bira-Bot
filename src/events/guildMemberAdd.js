@@ -8,7 +8,7 @@ module.exports = {
         // 1. DETECÇÃO AUTOMÁTICA DO CANAL
         // =======================================================
         // O bot procura o primeiro canal que tiver um desses nomes
-        const canaisPossiveis = ['boas-vindas'];
+        const canaisPossiveis = ['✅︱boas-vindas'];
         
         const channel = member.guild.channels.cache.find(ch => canaisPossiveis.includes(ch.name));
 

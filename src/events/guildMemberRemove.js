@@ -1,119 +1,77 @@
-const { Events, EmbedBuilder, AuditLogEvent } = require('discord.js');
+const { Events, AuditLogEvent, EmbedBuilder } = require('discord.js');
 
 module.exports = {
     name: Events.GuildMemberRemove,
+    async execute(member, client) {
+        // Ignora se o bot estiver saindo (pra não bugar)
+        if (member.id === client.user.id) return;
 
-    async execute(member) {
-        // =======================================================
-        // 1. DETECÇÃO AUTOMÁTICA DO CANAL
-        // =======================================================
-        // Procura canais com nomes comuns de saída
-        const canaisPossiveis = ['saidas', 'despedida', 'tchau', 'boas-vindas', 'recepcao'];
-        const goodbyeChannel = member.guild.channels.cache.find(ch => canaisPossiveis.includes(ch.name));
+        // Procura o canal de saída (saiu-fora, saida, despedida)
+        const channel = member.guild.channels.cache.find(ch => 
+            ['saiu-fora', 'saida', 'despedidas', 'tchau'].includes(ch.name)
+        );
 
-        if (!goodbyeChannel) return;
+        if (!channel) return;
 
-        // Espera 2 segundos para o Discord atualizar o Audit Log
-        // (Isso é crucial, se for rápido demais o log de ban não aparece)
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // =======================================================
-        // 2. INVESTIGAÇÃO (SAIU, KICK OU BAN?)
-        // =======================================================
-        let departureType = 'self'; // Começamos assumindo que a saída foi voluntária
-        let moderator = null;
-        let auditReason = 'Não especificado';
+        // --- INVESTIGAÇÃO CSI ---
+        // Vamos olhar os logs de auditoria pra ver se teve Kick ou Ban recente (últimos 5 seg)
+        let razaoSaida = 'saiu por conta própria.';
+        let corEmbed = 0xFFA500; // Laranja (Padrão)
+        let titulo = '👋 Bateu o sino';
+        let executor = null;
 
         try {
-            // Busca os últimos 5 registros de auditoria
-            const fetchedLogs = await member.guild.fetchAuditLogs({ limit: 5 });
+            // Busca o último Kick
+            const fetchedKickLogs = await member.guild.fetchAuditLogs({
+                limit: 1,
+                type: AuditLogEvent.MemberKick,
+            });
+            const kickLog = fetchedKickLogs.entries.first();
 
-            // Procura um Log de KICK recente (últimos 5 segundos) para esse usuário
-            const kickLog = fetchedLogs.entries.find(
-                (entry) =>
-                    entry.action === AuditLogEvent.MemberKick &&
-                    entry.target.id === member.id &&
-                    Date.now() - entry.createdTimestamp < 5000
-            );
+            // Busca o último Ban
+            const fetchedBanLogs = await member.guild.fetchAuditLogs({
+                limit: 1,
+                type: AuditLogEvent.MemberBanAdd,
+            });
+            const banLog = fetchedBanLogs.entries.first();
 
-            // Procura um Log de BAN recente
-            const banLog = fetchedLogs.entries.find(
-                (entry) =>
-                    entry.action === AuditLogEvent.MemberBanAdd &&
-                    entry.target.id === member.id &&
-                    Date.now() - entry.createdTimestamp < 5000
-            );
+            const now = Date.now();
 
-            // Prioridade: Ban > Kick > Saiu Sozinho
-            if (banLog) {
-                departureType = 'ban';
-                moderator = banLog.executor;
-                auditReason = banLog.reason || auditReason;
-            } else if (kickLog) {
-                departureType = 'kick';
-                moderator = kickLog.executor;
-                auditReason = kickLog.reason || auditReason;
+            // Verifica se foi BANIDO (Se o log de ban for muito recente e bater o ID)
+            if (banLog && banLog.target.id === member.id && (now - banLog.createdTimestamp < 5000)) {
+                razaoSaida = 'foi BANIDO pelo síndico.';
+                corEmbed = 0xFF0000; // Vermelho
+                titulo = '🚫 CPF Cancelado';
+                executor = banLog.executor;
+            } 
+            // Verifica se foi EXPULSO (Kick)
+            else if (kickLog && kickLog.target.id === member.id && (now - kickLog.createdTimestamp < 5000)) {
+                razaoSaida = 'foi EXPULSO da portaria.';
+                corEmbed = 0xE67E22; // Laranja Escuro
+                titulo = '👢 Convite pra Sair';
+                executor = kickLog.executor;
             }
 
         } catch (error) {
-            console.error('[Goodbye] Erro ao tentar buscar o registro de auditoria (Falta permissão?):', error);
+            console.error('Erro ao verificar logs de auditoria:', error);
         }
 
-        // =======================================================
-        // 3. FRASES DO BIRA (PERSONALIZADAS)
-        // =======================================================
-        const responses = {
-            self: {
-                color: '#FFA500', // Laranja
-                title: 'ALGUEM PICOU A MULA E SAIU',
-                status: [
-                    'Até logo, até mais ver, bon voyage, arrivederci, até mais, adeus, boa viagem, vá em paz, que a porta bata onde o sol não bate... digo, até a próxima!',
-                    'Anotado na prancheta: o indivíduo pediu as contas. A guarita sentirá sua falta... ou não.',
-                    'Menos um pra eu ficar de olho. Bom, o portão tá aberto, né? Passar bem.',
-                    'Ué, já vai? Nem se despediu do Bira? Fica aí o registro da baixa.',
-                    'Seguiu seu rumo. Que encontre pastos mais verdes (ou não).',
-                ],
-            },
-            kick: {
-                color: '#FF4500', // Laranja-avermelhado
-                title: 'BAIXA POR MAU COMPORTAMENTO',
-                status: 'Foi **convidado(a) a se retirar** da área. O Bira abriu o portão na marra.',
-            },
-            ban: {
-                color: '#FF0000', // Vermelho
-                title: 'CPF CANCELADO NO TERREIRO',
-                status: 'Foi **permanentemente banido(a)**. Esse não pisa mais aqui.',
-            },
-        };
+        // --- Monta a mensagem ---
+        const embed = new EmbedBuilder()
+            .setColor(corEmbed)
+            .setAuthor({ name: titulo, iconURL: member.user.displayAvatarURL() })
+            .setDescription(`**${member.user.tag}** ${razaoSaida}`)
+            .setThumbnail(member.user.displayAvatarURL())
+            .setFooter({ text: `ID: ${member.id}` })
+            .setTimestamp();
 
-        const responseData = responses[departureType];
-
-        // Sorteia uma frase se for lista, ou pega a string direta
-        const statusText = Array.isArray(responseData.status)
-            ? responseData.status[Math.floor(Math.random() * responseData.status.length)]
-            : responseData.status;
-
-        // =======================================================
-        // 4. MONTAGEM DO EMBED
-        // =======================================================
-        const goodbyeEmbed = new EmbedBuilder()
-            .setColor(responseData.color)
-            .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
-            .setTitle(responseData.title)
-            .setDescription(`${member.user} não faz mais parte da rapaziada.`)
-            .addFields({ name: 'Status', value: statusText })
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-            .setTimestamp()
-            .setFooter({ text: `ID do Usuário: ${member.id}` });
-
-        // Se foi Kick ou Ban, adiciona quem fez e o motivo
-        if (moderator) {
-            goodbyeEmbed.addFields(
-                { name: 'Ação por', value: `${moderator.tag}`, inline: true },
-                { name: 'Motivo Registrado', value: `*${auditReason}*`, inline: true }
-            );
+        // Se tivermos o culpado (quem baniu/kickou), adicionamos no embed
+        if (executor) {
+            embed.addFields({ name: 'Responsável pela ação:', value: executor.tag });
+        } else {
+            embed.addFields({ name: 'Situação:', value: 'Saiu voluntariamente (ou pediu as contas).' });
         }
 
-        await goodbyeChannel.send({ embeds: [goodbyeEmbed] });
+        channel.send({ embeds: [embed] });
     },
 };

@@ -3,65 +3,53 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('unban')
-        .setDescription('Abre um pedido de desbanimento (Vai para votação no Tribunal)')
-        .addStringOption(option => option.setName('id').setDescription('ID do usuário banido').setRequired(true))
-        .addStringOption(option => option.setName('motivo').setDescription('Por que ele merece voltar?').setRequired(true))
+        .setDescription('Inicia uma sessão do Tribunal para desbanir alguém')
+        .addStringOption(option => option.setName('id').setDescription('O ID do usuário banido').setRequired(true))
+        .addStringOption(option => option.setName('motivo').setDescription('Por que ele merece perdão?').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
-    async execute(interaction) {
-        const idAlvo = interaction.options.getString('id');
-        const motivoAppeal = interaction.options.getString('motivo');
+    async execute(interaction, client) {
+        const userId = interaction.options.getString('id');
+        const motivo = interaction.options.getString('motivo');
 
-        await interaction.deferReply({ ephemeral: true });
-
-        // 1. Verifica se o usuário está realmente banido
-        let banInfo;
+        // 1. Verificar se o cara está realmente banido antes de abrir o tribunal
         try {
-            banInfo = await interaction.guild.bans.fetch(idAlvo);
-        } catch (e) {
-            return interaction.editReply('❌ Esse ID não consta na lista de banidos ou é inválido.');
+            await interaction.guild.bans.fetch(userId);
+        } catch (error) {
+            return interaction.reply({ content: '❌ Esse ID não consta na lista de banidos (ou é inválido).', ephemeral: true });
         }
 
-        // 2. Busca o canal do tribunal
-        // O canal DEVE ter "tribunal" no nome (ex: ⚖️┃tribunal)
-        const canalTribunal = interaction.guild.channels.cache.find(c => c.name.includes('tribunal'));
-        
-        if (!canalTribunal) {
-            return interaction.editReply('❌ Não achei o canal do tribunal. Crie um canal com "tribunal" no nome primeiro!');
-        }
-
-        // 3. Monta os Botões de Decisão
-        const botoes = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`absolver_${idAlvo}`) // O ID vai escondido no botão
-                    .setLabel('Aprovar Desbanimento')
-                    .setStyle(ButtonStyle.Success)
-                    .setEmoji('🕊️'),
-                new ButtonBuilder()
-                    .setCustomId(`manter_${idAlvo}`)
-                    .setLabel('Recusar Pedido')
-                    .setStyle(ButtonStyle.Danger)
-                    .setEmoji('🔨')
-            );
-
-        // 4. Cria o Processo Público
-        const embedProcesso = new EmbedBuilder()
-            .setColor(0x5865F2) // Azul Discord
-            .setTitle('⚖️ Pedido de Desbanimento')
-            .setThumbnail(banInfo.user.displayAvatarURL() || null)
-            .setDescription(`O Staff **${interaction.user.tag}** sugeriu desbanir este usuário.`)
+        // 2. Monta a "Ficha do Réu" (O Embed do Tribunal)
+        const embed = new EmbedBuilder()
+            .setColor(0xF1C40F) // Dourado (Cor da Justiça)
+            .setTitle('⚖️ SESSÃO DO TRIBUNAL INICIADA')
+            .setDescription(`O Excelentíssimo **${interaction.user.tag}** convocou uma audiência de revisão de pena.`)
             .addFields(
-                { name: '👤 Réu', value: `${banInfo.user.tag} (ID: ${banInfo.user.id})`, inline: true },
-                { name: '📜 Banido por', value: banInfo.reason || 'Motivo desconhecido', inline: true },
-                { name: '🛡️ Justificativa para Voltar', value: motivoAppeal }
+                { name: '👤 Réu (ID)', value: userId, inline: true },
+                { name: '🛡️ Advogado', value: interaction.user.tag, inline: true },
+                { name: '📝 Alegação da Defesa', value: motivo }
             )
-            .setFooter({ text: 'Portaria do Bira • Análise da Staff' })
+            .setThumbnail('https://media.giphy.com/media/l0HlO3BJ8LAL5j1vx6/giphy.gif') // Martelo do Juiz
+            .setFooter({ text: 'A decisão da Staff é soberana.' })
             .setTimestamp();
 
-        // 5. Envia para o canal público da Staff
-        await canalTribunal.send({ content: '@here 👨‍⚖️ Atenção Staff! Novo pedido de revisão.', embeds: [embedProcesso], components: [botoes] });
+        // 3. Cria os Botões de Veredito
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`absolver_${userId}`) // Passa o ID pro interactionCreate desbanir
+                    .setLabel('ABSOLVER (Unban)')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('🕊️'),
+                
+                new ButtonBuilder()
+                    .setCustomId(`manter_${userId}`) // Apenas cancela o embed
+                    .setLabel('MANTER PENA')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🔒')
+            );
 
-        await interaction.editReply(`✅ Processo nº ${idAlvo} aberto com sucesso no canal ${canalTribunal}!`);
+        // Envia o processo para o chat
+        await interaction.reply({ embeds: [embed], components: [row] });
     },
 };

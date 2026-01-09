@@ -1,6 +1,6 @@
 const { EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
-const NOME_CANAL_LOGS = '⛔┃bira-logs';
+const NOME_CANAL_LOGS = '📜┃logs-do-bira';
 
 async function logEvento(client, guild, tipo, titulo, descricao, campos = [], cor = 0xFFFFFF) {
     if (!guild) return;
