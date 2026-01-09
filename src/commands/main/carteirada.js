@@ -28,7 +28,7 @@ module.exports = {
 
         const frasesElogio = [
             'Esse aqui paga a conta de luz da guarita! Respeito!',
-            'Abram alas! O sócio majoritário do churrasco chegou.',
+            'Esse ai é "bigode" de verdade!',
             'Atenção: Cidadão de alta periculosidade (financeira) na área.',
             'O dono da lancha e do jet-ski. 🚤',
             'Silêncio! O patrão tá falando.'
@@ -41,7 +41,7 @@ module.exports = {
             .setTitle(`💎 A CARTEIRADA FOI DADA!`)
             .setDescription(`## 👑 ${interaction.user} \n\n> *"${frase}"*`)
             .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-            .setFooter({ text: 'Verificado pelo Bira • Status: VIP Premium Gold Blaster' })
+            .setFooter({ text: 'Verificado pelo Bira • Status: VIP Premium Gold' })
             .setImage('https://media.tenor.com/images/1c6c5923974534888f4078864f9f7734/tenor.gif'); // GIF de dinheiro ou respeito (opcional)
 
         await interaction.reply({ embeds: [embed] });

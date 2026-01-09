@@ -45,6 +45,6 @@ module.exports = {
         
         setInterval(() => {
             checkStream(client);
-        }, 2 * 60 * 1000); // Checa a cada 2 minutos
+        }, 5 * 60 * 1000); // Checa a cada 2 minutos
     },
 };

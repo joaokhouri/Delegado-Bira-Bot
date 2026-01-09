@@ -8,7 +8,7 @@ module.exports = {
         // 1. DETECÇÃO AUTOMÁTICA DO CANAL
         // =======================================================
         // O bot procura o primeiro canal que tiver um desses nomes
-        const canaisPossiveis = ['boas-vindas', 'entrada', 'recepcao', 'chat-geral', 'geral'];
+        const canaisPossiveis = ['boas-vindas'];
         
         const channel = member.guild.channels.cache.find(ch => canaisPossiveis.includes(ch.name));
 
@@ -25,7 +25,6 @@ module.exports = {
             `ABRE O PORTÃO QUE CHEGOU GENTE NOVA!`,
             `MAIS UM PRA QUADRILHA!`,
             `OLHA QUEM TÁ CHEGANDO NO PEDAÇO!`,
-            `QAP? TEM MORADOR NOVO NA ÁREA!`,
         ];
 
         // Lista de possíveis frases de boas-vindas na descrição
